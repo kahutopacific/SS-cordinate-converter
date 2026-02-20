@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>SS Mark → WGS84</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e13;
+    --surface: #141920;
+    --surface2: #1a2028;
+    --surface3: #212830;
+    --border: #2a3140;
+    --text: #e8edf4;
+    --text-dim: #7d8a9a;
+    --green: #34d399;
+    --green-dim: #059669;
+    --green-bg: rgba(52,211,153,0.06);
+    --green-border: rgba(52,211,153,0.15);
+    --orange: #fbbf24;
+    --orange-bg: rgba(251,191,36,0.08);
+    --orange-border: rgba(251,191,36,0.15);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  .app { max-width: 440px; margin: 0 auto; padding: 0 16px 60px; }
+
+  .header {
+    padding: 28px 0 16px;
+    text-align: center;
+  }
+
+  .header-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--green-bg);
+    border: 1px solid var(--green-border);
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--green);
+    margin-bottom: 14px;
+  }
+
+  .header h1 { font-size: 22px; font-weight: 800; line-height: 1.2; margin-bottom: 4px; }
+  .header p { font-size: 13px; color: var(--text-dim); }
+
+  .steps { display: flex; justify-content: center; gap: 8px; margin: 20px 0 24px; }
+  .step-dot { width: 36px; height: 4px; border-radius: 2px; background: var(--border); transition: background 0.3s; }
+  .step-dot.active { background: var(--green); }
+  .step-dot.done { background: var(--green-dim); }
+
+  .section { display: none; animation: fadeIn 0.3s ease; }
+  .section.active { display: block; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 14px;
+  }
+
+  .card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+
+  .card-icon {
+    width: 36px; height: 36px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+  }
+
+  .card-icon.input-icon { background: var(--orange-bg); border: 1px solid var(--orange-border); }
+  .card-icon.output-icon { background: var(--green-bg); border: 1px solid var(--green-border); }
+
+  .card-title { font-size: 15px; font-weight: 700; }
+  .card-subtitle { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+
+  .field { margin-bottom: 14px; }
+  .field:last-child { margin-bottom: 0; }
+
+  .field-label {
+    font-size: 12px; font-weight: 600; color: var(--text-dim);
+    margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
+  }
+
+  .field-label .hint { font-weight: 400; font-size: 11px; color: #555d6a; }
+
+  .field input, .field select {
+    width: 100%;
+    background: var(--surface2);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s, background 0.2s;
+    -webkit-appearance: none;
+  }
+
+  .field input:focus { border-color: var(--green); background: var(--surface3); }
+  .field input::placeholder { color: #3a4250; font-size: 16px; }
+
+  .field select {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px; font-weight: 600; cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%237d8a9a'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 14px center; padding-right: 40px;
+  }
+
+  .height-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .btn {
+    width: 100%; padding: 18px; border: none; border-radius: 14px;
+    font-family: 'DM Sans', sans-serif; font-size: 16px; font-weight: 700;
+    cursor: pointer; transition: all 0.15s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { background: var(--green); color: #000; }
+  .btn-primary:active { background: var(--green-dim); }
+
+  .btn-secondary {
+    background: var(--surface2); border: 2px solid var(--border);
+    color: var(--text); margin-top: 10px;
+  }
+
+  .output-field {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 12px;
+    padding: 14px; margin-bottom: 10px;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  }
+
+  .output-field:last-of-type { margin-bottom: 0; }
+  .output-left { flex: 1; min-width: 0; }
+
+  .output-label {
+    font-size: 11px; font-weight: 600; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;
+  }
+
+  .output-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 17px; font-weight: 700; color: var(--green);
+    word-break: break-all; user-select: all;
+  }
+
+  .copy-single {
+    flex-shrink: 0; width: 44px; height: 44px; border-radius: 10px;
+    background: var(--surface3); border: 1px solid var(--border);
+    color: var(--text-dim); font-size: 13px; font-weight: 700;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s; font-family: 'DM Sans', sans-serif;
+  }
+
+  .copy-single:active, .copy-single.copied {
+    background: var(--green-bg); border-color: var(--green); color: var(--green);
+  }
+
+  .offset-banner {
+    background: var(--orange-bg); border: 1px solid var(--orange-border);
+    border-radius: 12px; padding: 14px;
+    margin-top: 16px; display: flex; align-items: flex-start; gap: 10px;
+  }
+
+  .offset-banner-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+
+  .offset-banner-text {
+    font-size: 13px; color: var(--orange); line-height: 1.5; font-weight: 500;
+  }
+
+  .checklist { margin-top: 16px; }
+
+  .check-item {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 12px 0; border-bottom: 1px solid var(--border);
+    font-size: 14px; line-height: 1.4; color: var(--text-dim);
+  }
+
+  .check-item:last-child { border-bottom: none; }
+
+  .check-num {
+    width: 24px; height: 24px; border-radius: 7px;
+    background: var(--surface3); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; color: var(--text); flex-shrink: 0;
+  }
+
+  .check-val {
+    color: var(--green); font-family: 'JetBrains Mono', monospace; font-weight: 600;
+  }
+
+  .footer {
+    text-align: center; margin-top: 28px;
+    font-size: 11px; color: #3a4250; line-height: 1.6;
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-6px); }
+    75% { transform: translateX(6px); }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="header">
+    <div class="header-badge">📡 Kahuto Pacific</div>
+    <h1>SS Mark → Emlid</h1>
+    <p>Convert Fiji datum to WGS84 for base setup</p>
+  </div>
+
+  <div class="steps">
+    <div class="step-dot active" id="dot1"></div>
+    <div class="step-dot" id="dot2"></div>
+    <div class="step-dot" id="dot3"></div>
+  </div>
+
+  <!-- STEP 1: INPUT -->
+  <div class="section active" id="step1">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon input-icon">📋</div>
+        <div>
+          <div class="card-title">SS Mark Datasheet</div>
+          <div class="card-subtitle">Enter coordinates exactly as printed</div>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="field-label">Latitude <span class="hint">negative for South</span></div>
+        <input type="number" id="inLat" step="any" placeholder="-17.77257115" inputmode="decimal">
+      </div>
+
+      <div class="field">
+        <div class="field-label">Longitude <span class="hint">positive for East</span></div>
+        <input type="number" id="inLon" step="any" placeholder="177.43844365" inputmode="decimal">
+      </div>
+
+      <div class="height-row">
+        <div class="field">
+          <div class="field-label">Height (m)</div>
+          <input type="number" id="inH" step="any" placeholder="9.456" inputmode="decimal">
+        </div>
+        <div class="field">
+          <div class="field-label">Height type</div>
+          <select id="inHType">
+            <option value="ortho">RL / MSL</option>
+            <option value="ellip">Ellipsoidal</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" onclick="doConvert()">Convert to WGS84 →</button>
+  </div>
+
+  <!-- STEP 2: RESULTS -->
+  <div class="section" id="step2">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon output-icon">✅</div>
+        <div>
+          <div class="card-title">Enter in Emlid Base</div>
+          <div class="card-subtitle">Tap 📋 to copy each value</div>
+        </div>
+      </div>
+
+      <div class="output-field">
+        <div class="output-left">
+          <div class="output-label">Latitude</div>
+          <div class="output-value" id="outLat">—</div>
+        </div>
+        <button class="copy-single" onclick="copySingle(this,'outLat')">📋</button>
+      </div>
+
+      <div class="output-field">
+        <div class="output-left">
+          <div class="output-label">Longitude</div>
+          <div class="output-value" id="outLon">—</div>
+        </div>
+        <button class="copy-single" onclick="copySingle(this,'outLon')">📋</button>
+      </div>
+
+      <div class="output-field">
+        <div class="output-left">
+          <div class="output-label">Ellipsoidal Height</div>
+          <div class="output-value" id="outH">—</div>
+        </div>
+        <button class="copy-single" onclick="copySingle(this,'outH')">📋</button>
+      </div>
+    </div>
+
+    <div class="offset-banner">
+      <div class="offset-banner-icon">⚠️</div>
+      <div class="offset-banner-text" id="offsetText"></div>
+    </div>
+
+    <button class="btn btn-primary" onclick="showStep(3)" style="margin-top:16px">Setup Checklist →</button>
+    <button class="btn btn-secondary" onclick="reset()">← Convert Another Mark</button>
+  </div>
+
+  <!-- STEP 3: CHECKLIST -->
+  <div class="section" id="step3">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon output-icon">📝</div>
+        <div>
+          <div class="card-title">Emlid Base Setup</div>
+          <div class="card-subtitle">Follow these steps in order</div>
+        </div>
+      </div>
+
+      <div class="checklist">
+        <div class="check-item">
+          <div class="check-num">1</div>
+          <div>Open <strong style="color:var(--text)">Emlid Flow</strong> → Receivers → tap <strong style="color:var(--text)">Base</strong></div>
+        </div>
+        <div class="check-item">
+          <div class="check-num">2</div>
+          <div>Base Settings → Coordinates entry → <strong style="color:var(--text)">Manual</strong></div>
+        </div>
+        <div class="check-item">
+          <div class="check-num">3</div>
+          <div>Enter Latitude: <span class="check-val" id="chkLat"></span></div>
+        </div>
+        <div class="check-item">
+          <div class="check-num">4</div>
+          <div>Enter Longitude: <span class="check-val" id="chkLon"></span></div>
+        </div>
+        <div class="check-item">
+          <div class="check-num">5</div>
+          <div>Enter Ellipsoidal height: <span class="check-val" id="chkH"></span></div>
+        </div>
+        <div class="check-item">
+          <div class="check-num">6</div>
+          <div>Check <strong style="color:var(--text)">Antenna height</strong> matches your tripod</div>
+        </div>
+        <div class="check-item">
+          <div class="check-num">7</div>
+          <div>Save → wait for rover <strong style="color:var(--green)">RTK Fix</strong></div>
+        </div>
+        <div class="check-item">
+          <div class="check-num">8</div>
+          <div>Walk to a known point to <strong style="color:var(--text)">verify position</strong></div>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn btn-secondary" onclick="showStep(2)">← Back to Values</button>
+    <button class="btn btn-secondary" onclick="reset()">Convert Another Mark</button>
+  </div>
+
+  <div class="footer">
+    EPSG:15876 · 7-param Helmert · Position Vector<br>
+    Fiji Geodetic Datum 1986 (WGS72) → WGS84<br>
+    Published accuracy: ±2m
+  </div>
+</div>
+
+<script>
+let res = {};
+
+function doConvert() {
+  const lat = parseFloat(document.getElementById('inLat').value);
+  const lon = parseFloat(document.getElementById('inLon').value);
+  const h = parseFloat(document.getElementById('inH').value) || 0;
+  const hType = document.getElementById('inHType').value;
+
+  if (isNaN(lat)) { shakeField('inLat'); return; }
+  if (isNaN(lon)) { shakeField('inLon'); return; }
+
+  if (lat > 0 || lat < -25) {
+    if (!confirm('Latitude should be negative for Fiji (South). Continue?')) return;
+  }
+
+  const gSep = 56.5 + (lon-177)*0.15 + (lat+18)*0.3;
+  const hE = (hType === 'ortho') ? h + gSep : h;
+
+  const a=6378135, f=1/298.26, e2=2*f-f*f;
+  const a8=6378137, f8=1/298.257223563, e8=2*f8-f8*f8;
+  const rz=0.554*Math.PI/(180*3600), s=0.2263e-6;
+
+  const lr=lat*Math.PI/180, lnr=lon*Math.PI/180;
+  const sl=Math.sin(lr), cl=Math.cos(lr), sn=Math.sin(lnr), cn=Math.cos(lnr);
+  const N=a/Math.sqrt(1-e2*sl*sl);
+
+  const X=(N+hE)*cl*cn, Y=(N+hE)*cl*sn, Z=(N*(1-e2)+hE)*sl;
+  const X2=(1+s)*(X-rz*Y), Y2=(1+s)*(rz*X+Y), Z2=4.5+(1+s)*Z;
+
+  const p=Math.sqrt(X2*X2+Y2*Y2);
+  const lo=Math.atan2(Y2,X2);
+  let la=Math.atan2(Z2,p*(1-e8));
+  for(let i=0;i<20;i++){const n=a8/Math.sqrt(1-e8*Math.sin(la)*Math.sin(la));la=Math.atan2(Z2+e8*n*Math.sin(la),p);}
+  const nf=a8/Math.sqrt(1-e8*Math.sin(la)*Math.sin(la));
+  const h84=p/Math.cos(la)-nf;
+
+  const wLat=(la*180/Math.PI), wLon=(lo*180/Math.PI);
+
+  res = { lat: wLat.toFixed(10), lon: wLon.toFixed(10), h: h84.toFixed(3) };
+
+  document.getElementById('outLat').textContent = res.lat;
+  document.getElementById('outLon').textContent = res.lon;
+  document.getElementById('outH').textContent = res.h + ' m';
+  document.getElementById('chkLat').textContent = res.lat;
+  document.getElementById('chkLon').textContent = res.lon;
+  document.getElementById('chkH').textContent = res.h + ' m';
+
+  const dN=(wLat-lat)*111320, dE=(wLon-lon)*111320*Math.cos(lat*Math.PI/180);
+  document.getElementById('offsetText').innerHTML =
+    `Datum shift: <strong>${Math.sqrt(dN*dN+dE*dE).toFixed(1)}m</strong> (N: ${dN.toFixed(1)}m, E: ${dE.toFixed(1)}m)`;
+
+  showStep(2);
+}
+
+function showStep(n) {
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.getElementById('step'+n).classList.add('active');
+  for(let i=1;i<=3;i++){
+    const d=document.getElementById('dot'+i);
+    d.className='step-dot';
+    if(i<n)d.classList.add('done');
+    if(i===n)d.classList.add('active');
+  }
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function reset() {
+  document.getElementById('inLat').value='';
+  document.getElementById('inLon').value='';
+  document.getElementById('inH').value='';
+  showStep(1);
+}
+
+function copySingle(btn, id) {
+  let v = document.getElementById(id).textContent.replace(' m','');
+  if(navigator.clipboard) {
+    navigator.clipboard.writeText(v).then(()=>flash(btn));
+  } else {
+    const t=document.createElement('textarea');t.value=v;t.style.position='fixed';t.style.left='-9999px';
+    document.body.appendChild(t);t.select();document.execCommand('copy');document.body.removeChild(t);
+    flash(btn);
+  }
+}
+
+function flash(btn) {
+  btn.textContent='✓';btn.classList.add('copied');
+  setTimeout(()=>{btn.textContent='📋';btn.classList.remove('copied');},1500);
+}
+
+function shakeField(id) {
+  const el=document.getElementById(id);
+  el.style.borderColor='#ef4444';el.style.animation='none';
+  el.offsetHeight;el.style.animation='shake 0.4s ease';el.focus();
+  setTimeout(()=>{el.style.borderColor='';},2000);
+}
+</script>
+</body>
+</html>
